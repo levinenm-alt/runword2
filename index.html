@@ -1,0 +1,1347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="RunWord">
+<title>RunWord</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0d0d0d;
+  --card: #181818;
+  --card2: #1f1f1f;
+  --border: #2e2e2e;
+  --lime: #c8f135;
+  --lime-dim: rgba(200,241,53,0.12);
+  --lime-mid: rgba(200,241,53,0.25);
+  --orange: #ff7b35;
+  --text: #f0f0f0;
+  --muted: #666;
+  --muted2: #444;
+  --red: #ff4545;
+  --green: #3ddc84;
+  --cell: 22px;
+  --radius: 14px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Barlow', sans-serif;
+  min-height: 100vh; min-height: 100dvh;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── LOADING ── */
+#loadingScreen {
+  position: fixed; inset: 0; background: var(--bg);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 20px; z-index: 200;
+}
+.load-logo { font-family: 'Barlow Condensed', sans-serif; font-size: 52px; font-weight: 800; letter-spacing: 6px; color: var(--lime); }
+.load-sub { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--muted); letter-spacing: 1px; }
+.load-spinner {
+  width: 36px; height: 36px;
+  border: 3px solid var(--border);
+  border-top-color: var(--lime);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+#loadingError { color: var(--orange); font-size: 14px; text-align: center; max-width: 280px; line-height: 1.5; display: none; }
+#retryBtn {
+  padding: 12px 28px; border-radius: 10px; border: none;
+  background: var(--lime); color: #0d0d0d;
+  font-family: 'Barlow Condensed', sans-serif; font-size: 18px; font-weight: 700; letter-spacing: 1px;
+  cursor: pointer; display: none;
+}
+
+/* ── HEADER ── */
+header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--card);
+  flex-shrink: 0;
+}
+.logo { font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 800; letter-spacing: 4px; color: var(--lime); }
+.header-meta { display: flex; align-items: center; gap: 10px; }
+.puzzle-date { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); }
+.timer-pill {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--card2); border: 1px solid var(--border);
+  border-radius: 20px; padding: 5px 12px;
+  font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--lime);
+}
+.dot { width: 7px; height: 7px; background: var(--lime); border-radius: 50%; animation: blink 1.4s ease-in-out infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.25} }
+
+/* ── MAIN CLUE CARD ── */
+.clue-card {
+  margin: 14px 16px 10px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+}
+.clue-card::before {
+  content: '';
+  position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+  background: var(--lime);
+  border-radius: 4px 0 0 4px;
+}
+.clue-meta {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
+}
+.clue-id {
+  font-family: 'Barlow Condensed', sans-serif; font-size: 28px; font-weight: 800;
+  color: var(--lime); letter-spacing: 2px;
+}
+.clue-len {
+  font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--muted);
+  background: var(--card2); border: 1px solid var(--border);
+  border-radius: 6px; padding: 3px 8px;
+}
+.clue-hints {
+  font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--orange);
+  margin-left: auto;
+}
+.clue-body {
+  font-size: 17px; line-height: 1.45; color: var(--text); font-weight: 500;
+}
+.clue-pattern {
+  margin-top: 10px;
+  font-family: 'JetBrains Mono', monospace; font-size: 18px; letter-spacing: 4px;
+  color: var(--lime); display: flex; gap: 6px; flex-wrap: wrap;
+}
+.pat-char { display: inline-block; }
+.caddie-reason {
+  margin-top: 8px;
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(255,123,53,0.1); border: 1px solid rgba(255,123,53,0.3);
+  border-radius: 20px; padding: 3px 10px;
+  font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--orange);
+}
+.caddie-reason::before { content: '🎯'; font-size: 10px; }
+
+/* ── STATUS STRIP ── */
+.status-strip {
+  margin: 0 16px 10px;
+  display: flex; align-items: center; gap: 8px;
+  height: 28px;
+}
+.status-chip {
+  font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  border-radius: 20px; padding: 4px 12px;
+  background: var(--card2); border: 1px solid var(--border);
+  color: var(--muted);
+  transition: all 0.25s;
+}
+.status-chip.speaking { background: rgba(200,241,53,0.1); border-color: var(--lime); color: var(--lime); }
+.status-chip.listening { background: rgba(255,69,69,0.1); border-color: var(--red); color: var(--red); }
+.status-chip.correct { background: rgba(61,220,132,0.1); border-color: var(--green); color: var(--green); }
+.status-chip.wrong { background: rgba(255,123,53,0.1); border-color: var(--orange); color: var(--orange); }
+.heard-text { font-size: 12px; color: var(--muted); font-style: italic; margin-left: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 180px; }
+
+/* ── GRID ── */
+.grid-section {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  overflow: hidden; padding: 0 16px 6px;
+  min-height: 0;
+}
+.grid-wrap {
+  overflow: auto; width: 100%;
+  display: flex; justify-content: center;
+}
+.grid {
+  display: inline-grid;
+  gap: 2px;
+  padding: 3px;
+  background: var(--border);
+  border: 2px solid var(--border);
+  border-radius: 8px;
+}
+.gcell {
+  width: var(--cell); height: var(--cell);
+  background: var(--card);
+  display: flex; align-items: center; justify-content: center;
+  position: relative; border-radius: 3px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.gcell.black { background: #0d0d0d; cursor: default; }
+.gcell.hl-word { background: rgba(200,241,53,0.08); }
+.gcell.hl-active { background: rgba(200,241,53,0.22); box-shadow: inset 0 0 0 1.5px var(--lime); }
+.gcell.done { background: rgba(61,220,132,0.1); }
+.gcell-num { position: absolute; top: 1px; left: 2px; font-size: 6px; font-family: 'JetBrains Mono', monospace; color: var(--muted); line-height: 1; }
+.gcell-letter { font-family: 'Barlow Condensed', sans-serif; font-size: 13px; font-weight: 700; color: var(--text); margin-top: 3px; }
+.gcell.hl-active .gcell-letter { color: var(--lime); }
+
+.caddie-reason {
+  margin-top: 8px;
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(255,123,53,0.1); border: 1px solid rgba(255,123,53,0.3);
+  border-radius: 20px; padding: 3px 10px;
+  font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--orange);
+}
+.caddie-reason::before { content: '🎯 '; font-size: 10px; }
+
+/* ── CONTROLS ── */
+.controls {
+  padding: 10px 16px 20px;
+  display: flex; flex-direction: column; gap: 10px;
+  background: var(--card);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+/* RUN MODE TOGGLE */
+.run-mode-row { display: flex; gap: 10px; align-items: center; }
+.run-toggle {
+  flex: 1; padding: 16px;
+  border-radius: var(--radius); border: none; cursor: pointer;
+  font-family: 'Barlow Condensed', sans-serif; font-size: 22px; font-weight: 800; letter-spacing: 2px;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  transition: all 0.2s;
+  background: var(--lime); color: #0d0d0d;
+  box-shadow: 0 4px 24px rgba(200,241,53,0.2);
+}
+.run-toggle.active {
+  background: var(--red); color: #fff;
+  box-shadow: 0 4px 24px rgba(255,69,69,0.25);
+}
+.run-toggle:active { transform: scale(0.97); }
+
+.icon-btn {
+  width: 52px; height: 52px;
+  border-radius: var(--radius); border: 1px solid var(--border);
+  background: var(--card2); color: var(--muted);
+  font-size: 20px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+}
+.icon-btn:active { background: var(--lime-dim); color: var(--lime); transform: scale(0.93); }
+
+/* DIR TABS */
+.dir-row { display: flex; gap: 8px; }
+.dir-tab {
+  flex: 1; padding: 9px; border-radius: 8px;
+  background: var(--card2); border: 1px solid var(--border);
+  font-family: 'Barlow Condensed', sans-serif; font-size: 16px; font-weight: 700; letter-spacing: 1px;
+  color: var(--muted); cursor: pointer; text-align: center;
+  transition: all 0.15s;
+}
+.dir-tab.active { border-color: var(--lime); color: var(--lime); background: var(--lime-dim); }
+
+/* VOICE HINT STRIP */
+.voice-hints {
+  display: flex; gap: 6px; flex-wrap: wrap;
+}
+.vhint {
+  font-family: 'JetBrains Mono', monospace; font-size: 10px;
+  background: var(--card2); border: 1px solid var(--border);
+  border-radius: 20px; padding: 3px 9px; color: var(--muted);
+}
+.vhint span { color: var(--orange); }
+
+/* PROGRESS BAR */
+.progress-row {
+  display: flex; align-items: center; gap: 10px;
+}
+.progress-bar { flex: 1; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+.progress-fill { height: 100%; background: var(--lime); border-radius: 2px; transition: width 0.4s ease; }
+.progress-label { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); white-space: nowrap; }
+
+/* ── WIN ── */
+#winScreen {
+  position: fixed; inset: 0; background: rgba(13,13,13,0.97);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 16px; z-index: 100; text-align: center; padding: 40px;
+  opacity: 0; pointer-events: none; transition: opacity 0.5s;
+}
+#winScreen.show { opacity: 1; pointer-events: all; }
+.win-big { font-size: 72px; }
+.win-title { font-family: 'Barlow Condensed', sans-serif; font-size: 52px; font-weight: 800; letter-spacing: 4px; color: var(--lime); }
+.win-time { font-family: 'JetBrains Mono', monospace; font-size: 20px; color: var(--muted); }
+.win-btn {
+  margin-top: 10px; padding: 16px 36px; border-radius: 12px; border: none;
+  background: var(--lime); color: #0d0d0d;
+  font-family: 'Barlow Condensed', sans-serif; font-size: 22px; font-weight: 800; letter-spacing: 2px;
+  cursor: pointer;
+}
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div id="loadingScreen">
+  <div class="load-logo">RUNWORD</div>
+  <div class="load-sub">FETCHING TODAY'S LA TIMES PUZZLE...</div>
+  <div class="load-spinner" id="spinner"></div>
+  <div id="loadingError"></div>
+  <button id="retryBtn" onclick="loadPuzzle()">TRY AGAIN</button>
+</div>
+
+<!-- APP -->
+<header>
+  <div class="logo">RUNWORD</div>
+  <div class="header-meta">
+    <div class="puzzle-date" id="puzzleDateLabel">LA TIMES</div>
+    <div class="timer-pill"><div class="dot"></div><span id="timerDisplay">00:00</span></div>
+  </div>
+</header>
+
+<div class="clue-card">
+  <div class="clue-meta">
+    <div class="clue-id" id="clueId">1A</div>
+    <div class="clue-len" id="clueLen">— letters</div>
+    <div class="clue-hints" id="clueHints"></div>
+    <div class="caddie-reason" id="caddieReason" style="display:none"></div>
+  </div>
+  <div class="clue-body" id="clueBody">Loading puzzle...</div>
+  <div class="clue-pattern" id="cluePattern"></div>
+</div>
+
+<div class="status-strip">
+  <div class="status-chip" id="statusChip">READY</div>
+  <div class="heard-text" id="heardText"></div>
+</div>
+
+<div class="grid-section">
+  <div class="progress-row" style="width:100%;margin-bottom:8px;">
+    <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+    <div class="progress-label" id="progressLabel">0 / 0</div>
+  </div>
+  <div class="grid-wrap">
+    <div class="grid" id="grid"></div>
+  </div>
+</div>
+
+<div class="controls">
+  <div class="run-mode-row">
+    <button class="run-toggle" id="runToggle" onclick="toggleRunMode()">
+      <span>🎧</span><span id="runLabel">START RUN MODE</span>
+    </button>
+    <button class="icon-btn" onclick="repeatClue()" title="Repeat clue">🔁</button>
+    <button class="icon-btn" onclick="nextClue()" title="Skip to next">⏭</button>
+  </div>
+  <div class="dir-row">
+    <div class="dir-tab active" id="tab-across" onclick="setDir('across')">→ ACROSS</div>
+    <div class="dir-tab" id="tab-down" onclick="setDir('down')">↓ DOWN</div>
+  </div>
+  <div class="voice-hints">
+    <div class="vhint">say <span>answer</span></div>
+    <div class="vhint">say <span>"skip"</span></div>
+    <div class="vhint">say <span>"repeat"</span></div>
+    <div class="vhint">say <span>"hint"</span></div>
+    <div class="vhint">say <span>"across"</span> / <span>"down"</span></div>
+  </div>
+</div>
+
+<div id="winScreen">
+  <div class="win-big">🏅</div>
+  <div class="win-title">PUZZLE DONE!</div>
+  <div class="win-time" id="winTime">Time: 00:00</div>
+  <button class="win-btn" onclick="location.reload()">NEW PUZZLE</button>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════════
+let puzzle = null;          // { solution[][], clues[], w, h, title, date }
+let userGrid = [];
+let activeClueIdx = 0;
+let direction = 'across';
+let timerSec = 0, timerInterval = null;
+let runMode = false;
+let recognition = null, isListening = false;
+let isSpeaking = false;
+let speakQueue = [];
+let clueOrder = [];         // ordered list of clue indices for run mode
+let recentlyCompletedIdx = null;  // index of clue just finished, for intersection boost
+let attemptCounts = {};           // clueIdx → number of failed attempts
+let spellingMode = false;         // true when caddie asked user to spell it out
+let speltLetters = [];            // accumulated spelled letters
+
+const RARE_LETTERS = new Set(['X','Z','Q','K','J','V','Y']);
+
+const ORDINALS = ['first','second','third','fourth','fifth','sixth','seventh',
+                  'eighth','ninth','tenth','eleventh','twelfth','thirteenth',
+                  'fourteenth','fifteenth'];
+
+// ══════════════════════════════════════════════════
+//  FETCH + PARSE LA TIMES PUZZLE
+// ══════════════════════════════════════════════════
+
+// Difficulty order Mon=0 … Sat=5, Sun=6 (LA Times convention)
+const DAY_NAMES = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+// JS getDay(): 0=Sun,1=Mon,...,6=Sat  →  map to LA Times day index
+const JS_DAY_TO_LAT = [6,0,1,2,3,4,5];
+
+// Return a random past Date (within 3 years) that falls on the given LA Times day index
+function randomArchiveDate(latDayIdx) {
+  // latDayIdx: 0=Mon … 5=Sat, 6=Sun
+  const jsDayTarget = [1,2,3,4,6,0,0][latDayIdx]; // Mon=1…Sat=6,Sun=0
+  // Actually re-derive properly:
+  // latDay 0=Mon→jsDay 1, 1=Tue→2, 2=Wed→3, 3=Thu→4, 4=Fri→5, 5=Sat→6, 6=Sun→0
+  const jsTarget = latDayIdx === 6 ? 0 : latDayIdx + 1;
+  const now = new Date();
+  const threeYearsAgo = new Date(now);
+  threeYearsAgo.setFullYear(now.getFullYear() - 3);
+  // Total days in range
+  const totalDays = Math.floor((now - threeYearsAgo) / 86400000);
+  // Pick a random offset, then snap to nearest target weekday
+  for (let tries = 0; tries < 50; tries++) {
+    const offset = Math.floor(Math.random() * totalDays);
+    const candidate = new Date(threeYearsAgo);
+    candidate.setDate(candidate.getDate() + offset);
+    // Adjust to correct weekday
+    let diff = jsTarget - candidate.getDay();
+    if (diff !== 0) candidate.setDate(candidate.getDate() + diff);
+    // Must be in the past and within 3 years
+    if (candidate < now && candidate >= threeYearsAgo) return candidate;
+  }
+  return null;
+}
+
+function parseDayRequest(transcript) {
+  const t = transcript.toLowerCase();
+  for (let i = 0; i < DAY_NAMES.length; i++) {
+    if (t.includes(DAY_NAMES[i])) return i;
+  }
+  // Difficulty aliases
+  if (t.includes('easy') || t.includes('easiest')) return 0;       // Monday
+  if (t.includes('hard') || t.includes('hardest') || t.includes('brutal')) return 5; // Saturday
+  return null;
+}
+
+async function loadPuzzle(dateOverride) {
+  document.getElementById('loadingError').style.display = 'none';
+  document.getElementById('retryBtn').style.display = 'none';
+  document.getElementById('spinner').style.display = 'block';
+  document.getElementById('loadingScreen').style.display = 'flex';
+
+  const target = dateOverride || new Date();
+  const yy = String(target.getFullYear()).slice(2);
+  const mm = String(target.getMonth() + 1).padStart(2, '0');
+  const dd = String(target.getDate()).padStart(2, '0');
+  const id = `lat${yy}${mm}${dd}`;
+
+  const urls = [
+    `https://cdn3.amuselabs.com/lat/crossword?id=${id}&set=latimes`,
+    `https://corsproxy.io/?${encodeURIComponent(`https://cdn3.amuselabs.com/lat/crossword?id=${id}&set=latimes`)}`,
+    `https://api.allorigins.win/get?url=${encodeURIComponent(`https://cdn3.amuselabs.com/lat/crossword?id=${id}&set=latimes`)}`
+  ];
+
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+      if (!res.ok) continue;
+      let raw = await res.json();
+      // allorigins wraps in {contents: "..."}
+      if (raw.contents) raw = JSON.parse(raw.contents);
+      const parsed = parseAmuseLabs(raw, target);
+      if (parsed) { initPuzzle(parsed); return; }
+    } catch(e) { console.warn('Fetch attempt failed:', url, e); }
+  }
+
+  // All failed — load fallback demo
+  console.warn('All fetches failed, loading demo puzzle');
+  initPuzzle(getDemoPuzzle());
+}
+
+function parseAmuseLabs(data, date) {
+  try {
+    const w = data.w || data.width || 15;
+    const h = data.h || data.height || 15;
+    const black = data.black || '.';
+
+    // Build solution grid from box (2D array) or ans (flat)
+    let solution = Array.from({length: h}, () => Array(w).fill(null));
+    if (data.box && Array.isArray(data.box)) {
+      for (let r = 0; r < h; r++) {
+        for (let c = 0; c < w; c++) {
+          const v = data.box[r] ? data.box[r][c] : null;
+          solution[r][c] = (v === black || v === '' || v == null) ? null : v;
+        }
+      }
+    } else if (data.ans) {
+      const flat = Array.isArray(data.ans) ? data.ans : [];
+      for (let i = 0; i < flat.length; i++) {
+        const r = Math.floor(i / w), c = i % w;
+        solution[r][c] = flat[i] === black ? null : flat[i];
+      }
+    }
+
+    // Build clues from placedWords
+    const clues = [];
+    const words = data.placedWords || data.words || [];
+    for (const pw of words) {
+      const dir = pw.acrossNotDown ? 'across' : 'down';
+      const clueBody = (pw.clue && pw.clue.body) ? pw.clue.body
+                     : (typeof pw.clue === 'string') ? pw.clue
+                     : pw.clueBody || pw.hint || '(clue unavailable)';
+      clues.push({
+        num: pw.number || pw.num,
+        dir,
+        text: clueBody,
+        row: pw.y !== undefined ? pw.y : pw.row,
+        col: pw.x !== undefined ? pw.x : pw.col,
+        len: pw.word ? pw.word.length : pw.len,
+        answer: pw.word || pw.answer || ''
+      });
+    }
+
+    if (clues.length === 0) return null;
+    clues.sort((a, b) => a.num - b.num || (a.dir === 'across' ? -1 : 1));
+
+    const dateStr = date.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+    return {
+      solution, clues, w, h,
+      title: data.title || `LA Times ${dateStr}`,
+      date: dateStr
+    };
+  } catch(e) {
+    console.error('Parse error:', e);
+    return null;
+  }
+}
+
+// ══════════════════════════════════════════════════
+//  DEMO PUZZLE (fallback, runner-themed 5×5)
+// ══════════════════════════════════════════════════
+function getDemoPuzzle() {
+  const solution = [
+    ['P','A','C','E','R'],
+    ['R',null,'R',null,'U'],
+    ['O','V','A','L','N'],
+    ['N',null,'S',null,'S'],
+    ['E','L','H','I','T'],
+  ];
+  const clues = [
+    { num:1, dir:'across', row:0, col:0, len:5, text:"Rabbit or rabbit-setter in a race", answer:"PACER" },
+    { num:3, dir:'across', row:2, col:0, len:4, text:"Track shape; also a dinosaur's egg", answer:"OVAL" },
+    { num:5, dir:'across', row:4, col:0, len:5, text:"Comes out of a starting pistol", answer:"BLAST" },
+    { num:1, dir:'down',   row:0, col:0, len:5, text:"Stand at attention; also what runners do at the line", answer:"PRONE" },
+    { num:2, dir:'down',   row:0, col:4, len:5, text:"Athletic gear brand with a swoosh competitor", answer:"RUNTS" },
+  ];
+  // fix solution to match answers
+  const s = [
+    ['P','A','C','E','R'],
+    ['R',null,'R',null,'U'],
+    ['O','V','A','L','N'],
+    ['N',null,'S',null,'S'],
+    ['E','L','H','I','T'],
+  ];
+  return {
+    solution: s, clues, w:5, h:5,
+    title:'Demo Puzzle (offline)',
+    date:'Demo'
+  };
+}
+
+// ══════════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════════
+function initPuzzle(p) {
+  puzzle = p;
+  userGrid = Array.from({length: p.h}, () => Array(p.w).fill(''));
+  document.getElementById('puzzleDateLabel').textContent = p.date || 'LA TIMES';
+
+  // Build clue order: across first, then down, ordered by number
+  const across = p.clues.filter(c => c.dir === 'across').sort((a,b) => a.num - b.num);
+  const down   = p.clues.filter(c => c.dir === 'down').sort((a,b) => a.num - b.num);
+  // Interleave: across order then down (user can switch to purely sequential later)
+  clueOrder = [...across.map(c => p.clues.indexOf(c)), ...down.map(c => p.clues.indexOf(c))];
+
+  activeClueIdx = clueOrder[0];
+  direction = puzzle.clues[activeClueIdx]?.dir || 'across';
+
+  // Compute grid cell numbers
+  computeCellNums();
+
+  document.getElementById('loadingScreen').style.display = 'none';
+  renderGrid();
+  updateClueCard();
+  updateProgress();
+  startTimer();
+}
+
+let cellNums = {};
+function computeCellNums() {
+  cellNums = {};
+  for (const cl of puzzle.clues) {
+    const key = `${cl.row},${cl.col}`;
+    if (!cellNums[key]) cellNums[key] = cl.num;
+  }
+}
+
+// ══════════════════════════════════════════════════
+//  GRID
+// ══════════════════════════════════════════════════
+function renderGrid() {
+  const grid = document.getElementById('grid');
+  grid.style.gridTemplateColumns = `repeat(${puzzle.w}, var(--cell))`;
+  grid.style.gridTemplateRows = `repeat(${puzzle.h}, var(--cell))`;
+  grid.innerHTML = '';
+
+  const activeClue = puzzle.clues[activeClueIdx];
+
+  for (let r = 0; r < puzzle.h; r++) {
+    for (let c = 0; c < puzzle.w; c++) {
+      const div = document.createElement('div');
+      const isBlack = puzzle.solution[r][c] === null;
+      div.className = 'gcell' + (isBlack ? ' black' : '');
+      div.id = `g${r}_${c}`;
+
+      if (!isBlack) {
+        const key = `${r},${c}`;
+        if (cellNums[key]) {
+          const n = document.createElement('div');
+          n.className = 'gcell-num'; n.textContent = cellNums[key];
+          div.appendChild(n);
+        }
+        const l = document.createElement('div');
+        l.className = 'gcell-letter';
+        l.id = `gl${r}_${c}`;
+        l.textContent = userGrid[r][c];
+        div.appendChild(l);
+        div.onclick = () => tapCell(r, c);
+
+        if (activeClue && isInClue(r, c, activeClue)) {
+          div.classList.add('hl-word');
+          if (r === activeClue.row && c === activeClue.col) div.classList.add('hl-active');
+        }
+        if (isWordDone(r, c)) div.classList.add('done');
+      }
+      grid.appendChild(div);
+    }
+  }
+}
+
+function refreshGrid() {
+  const activeClue = puzzle.clues[activeClueIdx];
+  for (let r = 0; r < puzzle.h; r++) {
+    for (let c = 0; c < puzzle.w; c++) {
+      const div = document.getElementById(`g${r}_${c}`);
+      if (!div || puzzle.solution[r][c] === null) continue;
+      div.classList.remove('hl-word','hl-active','done');
+      if (activeClue && isInClue(r, c, activeClue)) {
+        div.classList.add('hl-word');
+        if (r === activeClue.row && c === activeClue.col) div.classList.add('hl-active');
+      }
+      if (isWordDone(r, c)) div.classList.add('done');
+      const l = document.getElementById(`gl${r}_${c}`);
+      if (l) l.textContent = userGrid[r][c];
+    }
+  }
+}
+
+function isInClue(r, c, clue) {
+  if (clue.dir === 'across') return r === clue.row && c >= clue.col && c < clue.col + clue.len;
+  return c === clue.col && r >= clue.row && r < clue.row + clue.len;
+}
+
+function isWordDone(r, c) {
+  for (const cl of puzzle.clues) {
+    if (isInClue(r, c, cl)) {
+      for (let i = 0; i < cl.len; i++) {
+        const rr = cl.dir === 'across' ? cl.row : cl.row + i;
+        const cc = cl.dir === 'across' ? cl.col + i : cl.col;
+        if (!userGrid[rr][cc] || userGrid[rr][cc] !== puzzle.solution[rr][cc]) return false;
+      }
+      return true;
+    }
+  }
+  return false;
+}
+
+function tapCell(r, c) {
+  // Find which clue this belongs to in current direction; toggle direction if already active
+  const clue = puzzle.clues[activeClueIdx];
+  if (clue && isInClue(r, c, clue)) {
+    setDir(direction === 'across' ? 'down' : 'across');
+    return;
+  }
+  // Find a clue that covers this cell in current direction
+  let found = puzzle.clues.findIndex(cl => cl.dir === direction && isInClue(r, c, cl));
+  if (found < 0) found = puzzle.clues.findIndex(cl => isInClue(r, c, cl));
+  if (found >= 0) {
+    activeClueIdx = found;
+    direction = puzzle.clues[found].dir;
+    refreshGrid();
+    updateClueCard();
+    syncDirTabs();
+  }
+}
+
+// ══════════════════════════════════════════════════
+//  CLUE CARD + PROGRESS
+// ══════════════════════════════════════════════════
+function updateClueCard() {
+  const cl = puzzle.clues[activeClueIdx];
+  if (!cl) return;
+  const label = cl.dir === 'across' ? `${cl.num}A` : `${cl.num}D`;
+  document.getElementById('clueId').textContent = label;
+  document.getElementById('clueLen').textContent = `${cl.len} letters`;
+  document.getElementById('clueBody').textContent = cl.text;
+  updatePattern(cl);
+  document.getElementById('clueHints').textContent = getHintSummary(cl);
+
+  // Show caddie reason badge
+  const reasonEl = document.getElementById('caddieReason');
+  const reason = scoreReasonPhrase(activeClueIdx);
+  if (reason) {
+    reasonEl.textContent = reason;
+    reasonEl.style.display = 'inline-flex';
+  } else {
+    reasonEl.style.display = 'none';
+  }
+}
+
+function updatePattern(cl) {
+  const pat = document.getElementById('cluePattern');
+  pat.innerHTML = '';
+  for (let i = 0; i < cl.len; i++) {
+    const r = cl.dir === 'across' ? cl.row : cl.row + i;
+    const c = cl.dir === 'across' ? cl.col + i : cl.col;
+    const letter = userGrid[r][c];
+    const span = document.createElement('span');
+    span.className = 'pat-char ' + (letter ? 'filled' : 'blank');
+    span.textContent = letter || '_';
+    pat.appendChild(span);
+  }
+}
+
+function getHintSummary(cl) {
+  const filled = getFilledCells(cl);
+  const count = filled.filter(Boolean).length;
+  if (count === 0) return '';
+  return `${count} filled`;
+}
+
+function getFilledCells(cl) {
+  return Array.from({length: cl.len}, (_, i) => {
+    const r = cl.dir === 'across' ? cl.row : cl.row + i;
+    const c = cl.dir === 'across' ? cl.col + i : cl.col;
+    return userGrid[r][c] || '';
+  });
+}
+
+function updateProgress() {
+  const total = puzzle.clues.length;
+  let done = 0;
+  for (const cl of puzzle.clues) {
+    let ok = true;
+    for (let i = 0; i < cl.len; i++) {
+      const r = cl.dir === 'across' ? cl.row : cl.row + i;
+      const c = cl.dir === 'across' ? cl.col + i : cl.col;
+      if (userGrid[r][c] !== puzzle.solution[r][c]) { ok = false; break; }
+    }
+    if (ok) done++;
+  }
+  document.getElementById('progressFill').style.width = `${(done/total)*100}%`;
+  document.getElementById('progressLabel').textContent = `${done} / ${total}`;
+  if (done === total) setTimeout(showWin, 600);
+}
+
+// ══════════════════════════════════════════════════
+//  TTS — THE MAIN FEATURE
+// ══════════════════════════════════════════════════
+function buildClueAnnouncement(cl) {
+  const dir = cl.dir === 'across' ? 'across' : 'down';
+  const filled = getFilledCells(cl);
+  let msg = `${cl.num} ${dir}. ${cl.len} letters.`;
+
+  if (cl.len > 10) {
+    // Read first 5 positions as "T blank D R blank" style
+    const first5 = filled.slice(0, 5).map(l => l || 'blank');
+    msg += ' Starts with ' + first5.join(' ') + '.';
+  } else {
+    // Short clue: read all filled letters positionally
+    const knownParts = [];
+    for (let i = 0; i < filled.length; i++) {
+      if (filled[i]) {
+        const ord = ORDINALS[i] || `position ${i+1}`;
+        knownParts.push(`${ord} letter is ${filled[i]}`);
+      }
+    }
+    if (knownParts.length > 0) msg += ' ' + knownParts.join(', ') + '.';
+  }
+
+  msg += ' ' + cl.text;
+  return msg;
+}
+
+function speak(text, onEnd) {
+  if (!window.speechSynthesis) return;
+  speechSynthesis.cancel();
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.rate = 0.92;
+  utter.pitch = 1.0;
+  utter.volume = 1;
+  setStatus('speaking', '🔊 Speaking...');
+  isSpeaking = true;
+  utter.onend = () => {
+    isSpeaking = false;
+    setStatus('ready', 'READY');
+    if (onEnd) onEnd();
+  };
+  utter.onerror = () => {
+    isSpeaking = false;
+    setStatus('ready', 'READY');
+    if (onEnd) onEnd();
+  };
+  speechSynthesis.speak(utter);
+}
+
+function repeatClue() {
+  const cl = puzzle.clues[activeClueIdx];
+  if (!cl) return;
+  speak(buildClueAnnouncement(cl), runMode ? startListening : null);
+}
+
+// ══════════════════════════════════════════════════
+//  RUN MODE
+// ══════════════════════════════════════════════════
+function toggleRunMode() {
+  runMode = !runMode;
+  const btn = document.getElementById('runToggle');
+  const lbl = document.getElementById('runLabel');
+  if (runMode) {
+    btn.classList.add('active');
+    lbl.textContent = 'STOP RUN MODE';
+    announceCurrentClue();
+  } else {
+    btn.classList.remove('active');
+    lbl.textContent = 'START RUN MODE';
+    speechSynthesis.cancel();
+    stopListening();
+    setStatus('ready', 'READY');
+  }
+}
+
+function announceCurrentClue() {
+  if (!runMode) return;
+  const cl = puzzle.clues[activeClueIdx];
+  if (!cl) return;
+  speak(buildClueAnnouncement(cl), () => {
+    if (runMode) startListening();
+  });
+}
+
+// ══════════════════════════════════════════════════
+//  SMART CLUE SCORING ENGINE
+// ══════════════════════════════════════════════════
+
+// Returns cells that the two clues share
+function getIntersectingCells(clA, clB) {
+  const cells = [];
+  for (let i = 0; i < clA.len; i++) {
+    const r = clA.dir === 'across' ? clA.row : clA.row + i;
+    const c = clA.dir === 'across' ? clA.col + i : clA.col;
+    if (isInClue(r, c, clB)) cells.push({r, c});
+  }
+  return cells;
+}
+
+function clueScore(idx) {
+  const cl = puzzle.clues[idx];
+  if (isClueComplete(cl)) return -9999; // already done, skip
+
+  const filled = getFilledCells(cl);
+  const filledCount = filled.filter(Boolean).length;
+  const fillRatio = filledCount / cl.len;
+
+  // 1. Fill percentage (0–50 pts)
+  let score = fillRatio * 50;
+
+  // 2. First letter filled (25 pt bonus — anchors the whole word)
+  if (filled[0]) score += 25;
+
+  // 3. Rare letters already revealed (12 pts each — enormously constraining)
+  for (const letter of filled) {
+    if (letter && RARE_LETTERS.has(letter)) score += 12;
+  }
+
+  // 4. Intersection with just-completed clue (40 pt bonus)
+  if (recentlyCompletedIdx !== null) {
+    const recent = puzzle.clues[recentlyCompletedIdx];
+    const shared = getIntersectingCells(recent, cl);
+    // Only bonus if the shared cell is now filled (it will be, since we just completed)
+    if (shared.length > 0) score += 40;
+  }
+
+  return score;
+}
+
+function pickBestClue() {
+  let bestIdx = -1, bestScore = -Infinity;
+  for (let i = 0; i < puzzle.clues.length; i++) {
+    if (i === activeClueIdx) continue;
+    const s = clueScore(i);
+    if (s > bestScore) { bestScore = s; bestIdx = i; }
+  }
+  return bestIdx;
+}
+
+function scoreReasonPhrase(idx) {
+  const cl = puzzle.clues[idx];
+  const filled = getFilledCells(cl);
+  const filledCount = filled.filter(Boolean).length;
+  const fillRatio = filledCount / cl.len;
+
+  if (recentlyCompletedIdx !== null) {
+    const recent = puzzle.clues[recentlyCompletedIdx];
+    if (getIntersectingCells(recent, cl).length > 0) {
+      const recentCl = recent;
+      const label = recentCl.dir === 'across' ? `${recentCl.num} across` : `${recentCl.num} down`;
+      return `crosses ${label}`;
+    }
+  }
+  const rareFound = filled.filter(l => l && RARE_LETTERS.has(l));
+  if (rareFound.length > 0) return `has a ${rareFound[0]}`;
+  if (filled[0]) return `first letter is ${filled[0]}`;
+  if (fillRatio > 0.5) return `${filledCount} of ${cl.len} letters filled`;
+  return null;
+}
+
+function nextClue(auto = false) {
+  const bestIdx = pickBestClue();
+  if (bestIdx < 0) {
+    if (runMode) speak('Puzzle complete! Amazing run!');
+    return;
+  }
+
+  const cl = puzzle.clues[bestIdx];
+  activeClueIdx = bestIdx;
+  direction = cl.dir;
+  spellingMode = false;
+  speltLetters = [];
+  syncDirTabs();
+  refreshGrid();
+  updateClueCard();
+
+  if (runMode) {
+    const reason = scoreReasonPhrase(bestIdx);
+    if (auto && reason) {
+      // Caddie explains its pick before reading the clue
+      speak(`Good one! Next up — ${reason}.`, () => {
+        if (runMode) announceCurrentClue();
+      });
+    } else {
+      announceCurrentClue();
+    }
+  }
+}
+
+function isClueComplete(cl) {
+  for (let i = 0; i < cl.len; i++) {
+    const r = cl.dir === 'across' ? cl.row : cl.row + i;
+    const c = cl.dir === 'across' ? cl.col + i : cl.col;
+    if (userGrid[r][c] !== puzzle.solution[r][c]) return false;
+  }
+  return true;
+}
+
+// ══════════════════════════════════════════════════
+//  VOICE INPUT
+// ══════════════════════════════════════════════════
+function startListening() {
+  if (!runMode) return;
+  if (isListening) return;
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { setStatus('ready','Voice not supported'); return; }
+
+  recognition = new SR();
+  recognition.lang = 'en-US';
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 5;
+  recognition.continuous = false;
+
+  recognition.onstart = () => { isListening = true; setStatus('listening', '🎤 Listening...'); };
+  recognition.onerror = (e) => { isListening = false; setStatus('ready','READY'); };
+  recognition.onend = () => {
+    isListening = false;
+    // If still in run mode and not speaking, restart listening
+    if (runMode && !isSpeaking) {
+      setTimeout(() => { if (runMode && !isSpeaking) startListening(); }, 400);
+    }
+  };
+
+  recognition.onresult = (e) => {
+    const transcripts = [];
+    for (let i = 0; i < e.results[0].length; i++) {
+      transcripts.push(e.results[0][i].transcript.trim().toUpperCase());
+    }
+    handleVoiceInput(transcripts);
+  };
+
+  try { recognition.start(); } catch(ex) { console.warn(ex); }
+}
+
+function stopListening() {
+  isListening = false;
+  if (recognition) { try { recognition.stop(); } catch(e){} recognition = null; }
+}
+
+function handleVoiceInput(transcripts) {
+  const primary = transcripts[0] || '';
+  document.getElementById('heardText').textContent = `"${primary.toLowerCase()}"`;
+
+  // ── Spelling mode: accumulate one letter at a time ──
+  if (spellingMode) {
+    handleSpelling(primary, transcripts);
+    return;
+  }
+
+  // ── Voice commands ──
+  if (primary === 'SKIP' || primary === 'NEXT') {
+    attemptCounts[activeClueIdx] = 0;
+    speak('Okay, skipping.', () => nextClue(true));
+    return;
+  }
+  if (primary === 'REPEAT' || primary === 'AGAIN' || primary === 'WHAT') {
+    repeatClue(); return;
+  }
+  if (primary === 'HINT') { giveHint(); return; }
+  if (primary === 'ACROSS') { setDir('across'); repeatClue(); return; }
+  if (primary === 'DOWN')   { setDir('down');   repeatClue(); return; }
+
+  // Archive request mid-puzzle ("give me a thursday", "tuesday puzzle", etc.)
+  for (const t of transcripts) {
+    const dayIdx = parseDayRequest(t);
+    if (dayIdx !== null && (t.includes('GIVE') || t.includes('NEXT') || t.includes('PUZZLE') || t.includes('NEW') || t.includes('DIFFERENT'))) {
+      const dayName = DAY_NAMES[dayIdx];
+      speak(`Switching to a ${dayName} puzzle.`, () => loadArchivePuzzle(dayIdx));
+      return;
+    }
+  }
+
+  // ── Try to match answer ──
+  const cl = puzzle.clues[activeClueIdx];
+  if (!cl) return;
+
+  for (const t of transcripts) {
+    if (t === cl.answer)             { acceptAnswer(cl, cl.answer); return; }
+    if (t.includes(cl.answer))       { acceptAnswer(cl, cl.answer); return; }
+    if (t.replace(/\s+/g,'') === cl.answer) { acceptAnswer(cl, cl.answer); return; }
+  }
+
+  // ── Partial / prefix match ──
+  for (const t of transcripts) {
+    for (const w of t.split(/\s+/)) {
+      if (w.length >= 3 && cl.answer.startsWith(w)) {
+        speak(`Did you mean ${cl.answer}?`, () => { if (runMode) startListening(); });
+        return;
+      }
+    }
+  }
+
+  // ── No match: track attempts ──
+  attemptCounts[activeClueIdx] = (attemptCounts[activeClueIdx] || 0) + 1;
+  const attemptsLeft = 2 - attemptCounts[activeClueIdx];
+
+  if (attemptsLeft <= 0) {
+    // Used both attempts — move on silently
+    attemptCounts[activeClueIdx] = 0;
+    speak(`Moving on.`, () => { if (runMode) nextClue(true); });
+    return;
+  }
+
+  // ── One attempt left: check confidence of best transcript ──
+  // Low confidence = short word, lots of words, or phonetically distant
+  const confidence = transcripts[0]?.length > 0 ? guessConfidence(transcripts, cl) : 0;
+
+  if (confidence < 0.4) {
+    // Ask to spell it out
+    enterSpellingMode();
+  } else {
+    // Decent confidence, just wrong — re-read clue once
+    setStatus('wrong', `try again`);
+    speak(`Not quite. ${cl.text}`, () => { if (runMode) startListening(); });
+  }
+}
+
+// Rough confidence: do any transcripts share letters with the answer in position?
+function guessConfidence(transcripts, cl) {
+  let best = 0;
+  for (const t of transcripts) {
+    const clean = t.replace(/\s+/g, '');
+    if (clean.length === 0) continue;
+    let matches = 0;
+    const minLen = Math.min(clean.length, cl.answer.length);
+    for (let i = 0; i < minLen; i++) {
+      if (clean[i] === cl.answer[i]) matches++;
+    }
+    const score = matches / cl.answer.length;
+    if (score > best) best = score;
+  }
+  return best;
+}
+
+function enterSpellingMode() {
+  spellingMode = true;
+  speltLetters = [];
+  speak(`Not sure I caught that — spell it out for me, one letter at a time.`, () => {
+    if (runMode) startListening();
+  });
+}
+
+function handleSpelling(primary, transcripts) {
+  const cl = puzzle.clues[activeClueIdx];
+
+  // Done command
+  if (primary === 'DONE' || primary === 'FINISHED' || primary === 'THAT\'S IT') {
+    const word = speltLetters.join('');
+    spellingMode = false;
+    speltLetters = [];
+    if (word === cl.answer) {
+      acceptAnswer(cl, word);
+    } else {
+      speak(`Got ${word} — that's not it, moving on.`, () => { if (runMode) nextClue(true); });
+    }
+    return;
+  }
+
+  // Cancel
+  if (primary === 'SKIP' || primary === 'CANCEL' || primary === 'NEVER MIND') {
+    spellingMode = false; speltLetters = [];
+    speak('Okay, skipping.', () => nextClue(true));
+    return;
+  }
+
+  // Extract a single letter from whatever was said ("A", "the letter B", "B as in boy")
+  const letter = extractLetter(primary, transcripts);
+  if (letter) {
+    speltLetters.push(letter);
+    const remaining = cl.len - speltLetters.length;
+    if (remaining <= 0) {
+      // Auto-submit when we have enough letters
+      const word = speltLetters.join('');
+      spellingMode = false; speltLetters = [];
+      if (word === cl.answer) {
+        acceptAnswer(cl, word);
+      } else {
+        speak(`Got ${word} — not right, moving on.`, () => { if (runMode) nextClue(true); });
+      }
+    } else {
+      speak(`${letter}. ${remaining} more.`, () => { if (runMode) startListening(); });
+    }
+  } else {
+    speak(`Say one letter.`, () => { if (runMode) startListening(); });
+  }
+}
+
+function extractLetter(primary, transcripts) {
+  // Direct single letter
+  if (/^[A-Z]$/.test(primary)) return primary;
+  // "THE LETTER X" or "LETTER X"
+  const letterMatch = primary.match(/(?:THE\s+)?LETTER\s+([A-Z])\b/);
+  if (letterMatch) return letterMatch[1];
+  // "X AS IN ..." or "X FOR ..."
+  const asInMatch = primary.match(/^([A-Z])\s+(?:AS IN|FOR|LIKE)/);
+  if (asInMatch) return asInMatch[1];
+  // NATO / phonetic alphabet
+  const NATO = { ALPHA:'A',BRAVO:'B',CHARLIE:'C',DELTA:'D',ECHO:'E',FOXTROT:'F',
+    GOLF:'G',HOTEL:'H',INDIA:'I',JULIET:'J',KILO:'K',LIMA:'L',MIKE:'M',
+    NOVEMBER:'N',OSCAR:'O',PAPA:'P',QUEBEC:'Q',ROMEO:'R',SIERRA:'S',TANGO:'T',
+    UNIFORM:'U',VICTOR:'V',WHISKEY:'W',XRAY:'X','X-RAY':'X',YANKEE:'Y',ZULU:'Z' };
+  for (const t of transcripts) {
+    const word = t.trim().split(/\s+/)[0];
+    if (NATO[word]) return NATO[word];
+  }
+  // First word is a single letter
+  const firstWord = primary.split(/\s+/)[0];
+  if (/^[A-Z]$/.test(firstWord)) return firstWord;
+  return null;
+}
+
+function acceptAnswer(cl, word) {
+  setStatus('correct', `✓ ${word}`);
+  typeWord(cl, word);
+  recentlyCompletedIdx = activeClueIdx;  // remember for intersection scoring
+  speak(`${word}. Correct!`, () => {
+    updateProgress();
+    if (runMode) {
+      setTimeout(() => nextClue(true), 300);
+    }
+  });
+}
+
+function giveHint() {
+  const cl = puzzle.clues[activeClueIdx];
+  if (!cl) return;
+  const filled = getFilledCells(cl);
+  // Reveal first unfilled letter
+  const i = filled.findIndex(l => !l);
+  if (i < 0) { speak('This clue is already filled in.', () => { if (runMode) startListening(); }); return; }
+  const r = cl.dir === 'across' ? cl.row : cl.row + i;
+  const c = cl.dir === 'across' ? cl.col + i : cl.col;
+  const letter = puzzle.solution[r][c];
+  const ord = ORDINALS[i] || `position ${i+1}`;
+  userGrid[r][c] = letter;
+  refreshGrid(); updateClueCard(); updatePattern(cl);
+  speak(`Hint: the ${ord} letter is ${letter}.`, () => { if (runMode) startListening(); });
+}
+
+// ══════════════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════════════
+function typeWord(cl, word) {
+  for (let i = 0; i < Math.min(word.length, cl.len); i++) {
+    const r = cl.dir === 'across' ? cl.row : cl.row + i;
+    const c = cl.dir === 'across' ? cl.col + i : cl.col;
+    userGrid[r][c] = word[i];
+  }
+  refreshGrid(); updateClueCard(); updatePattern(cl);
+}
+
+function setDir(dir) {
+  direction = dir;
+  syncDirTabs();
+  // Try to find a clue for current active cell in new direction
+  const cl = puzzle.clues[activeClueIdx];
+  if (cl) {
+    const startR = cl.row, startC = cl.col;
+    const found = puzzle.clues.findIndex(c2 => c2.dir === dir && isInClue(startR, startC, c2));
+    if (found >= 0) { activeClueIdx = found; refreshGrid(); updateClueCard(); }
+  }
+}
+
+function syncDirTabs() {
+  document.getElementById('tab-across').classList.toggle('active', direction === 'across');
+  document.getElementById('tab-down').classList.toggle('active', direction === 'down');
+}
+
+function setStatus(type, msg) {
+  const chip = document.getElementById('statusChip');
+  chip.className = 'status-chip ' + type;
+  chip.textContent = msg;
+}
+
+function startTimer() {
+  timerInterval = setInterval(() => {
+    timerSec++;
+    const m = String(Math.floor(timerSec / 60)).padStart(2, '0');
+    const s = String(timerSec % 60).padStart(2, '0');
+    document.getElementById('timerDisplay').textContent = `${m}:${s}`;
+  }, 1000);
+}
+
+function showWin() {
+  clearInterval(timerInterval);
+  const m = String(Math.floor(timerSec / 60)).padStart(2, '0');
+  const s = String(timerSec % 60).padStart(2, '0');
+  document.getElementById('winTime').textContent = `Time: ${m}:${s}`;
+  document.getElementById('winScreen').classList.add('show');
+  speak(
+    `Puzzle complete! Great run! Tell me what day you want next — Monday through Saturday, easiest to hardest — and I'll pull one from the archive.`,
+    () => startArchiveListening()
+  );
+}
+
+function startArchiveListening() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) return;
+  const r = new SR();
+  r.lang = 'en-US';
+  r.interimResults = false;
+  r.maxAlternatives = 3;
+  r.onresult = (e) => {
+    const transcripts = Array.from({length: e.results[0].length}, (_, i) =>
+      e.results[0][i].transcript.trim().toUpperCase()
+    );
+    const primary = transcripts[0];
+
+    // Check for day request
+    for (const t of transcripts) {
+      const dayIdx = parseDayRequest(t);
+      if (dayIdx !== null) {
+        const dayName = DAY_NAMES[dayIdx];
+        speak(`Got it — grabbing a ${dayName} puzzle.`, () => loadArchivePuzzle(dayIdx));
+        return;
+      }
+    }
+    // Understood nothing useful — ask again
+    speak(`Say a day of the week — like "give me a Wednesday" — and I'll find one.`, () => startArchiveListening());
+  };
+  r.onerror = () => {};
+  r.onend = () => {};
+  try { r.start(); } catch(e) {}
+}
+
+async function loadArchivePuzzle(latDayIdx) {
+  document.getElementById('winScreen').classList.remove('show');
+  // Try up to 5 random dates for that weekday until one fetches successfully
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const date = randomArchiveDate(latDayIdx);
+    if (!date) continue;
+    try {
+      // Reset all state before loading
+      puzzle = null;
+      userGrid = [];
+      attemptCounts = {};
+      spellingMode = false;
+      speltLetters = [];
+      recentlyCompletedIdx = null;
+      timerSec = 0;
+      clearInterval(timerInterval);
+      runMode = false;
+      document.getElementById('runToggle').classList.remove('active');
+      document.getElementById('runLabel').textContent = 'START RUN MODE';
+
+      await loadPuzzle(date);
+      return;
+    } catch(e) {
+      console.warn('Archive attempt failed', e);
+    }
+  }
+  speak(`Couldn't find one — try saying a different day.`, () => startArchiveListening());
+}
+
+// ══════════════════════════════════════════════════
+//  KEYBOARD FALLBACK (desktop)
+// ══════════════════════════════════════════════════
+document.addEventListener('keydown', e => {
+  if (!puzzle) return;
+  if (e.key.length === 1 && /[a-zA-Z]/.test(e.key)) {
+    const cl = puzzle.clues[activeClueIdx];
+    if (!cl) return;
+    const filled = getFilledCells(cl);
+    const i = filled.findIndex(l => !l);
+    if (i < 0) return;
+    const r = cl.dir === 'across' ? cl.row : cl.row + i;
+    const c = cl.dir === 'across' ? cl.col + i : cl.col;
+    userGrid[r][c] = e.key.toUpperCase();
+    refreshGrid(); updateClueCard(); updatePattern(cl); updateProgress();
+  } else if (e.key === ' ') { e.preventDefault(); repeatClue(); }
+  else if (e.key === 'ArrowRight' || e.key === 'Tab') { e.preventDefault(); nextClue(); }
+  else if (e.key === 'Backspace') {
+    const cl = puzzle.clues[activeClueIdx];
+    if (!cl) return;
+    for (let i = cl.len - 1; i >= 0; i--) {
+      const r = cl.dir === 'across' ? cl.row : cl.row + i;
+      const c = cl.dir === 'across' ? cl.col + i : cl.col;
+      if (userGrid[r][c]) { userGrid[r][c] = ''; refreshGrid(); updateClueCard(); updatePattern(cl); return; }
+    }
+  }
+});
+
+// ══════════════════════════════════════════════════
+//  BOOT
+// ══════════════════════════════════════════════════
+loadPuzzle();
+</script>
+</body>
+</html>
